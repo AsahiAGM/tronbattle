@@ -188,6 +188,64 @@ int count_reachable(int field[WIDTH][HEIGHT], int x, int y) {
   return count;
 }
 
+pair<int, int> get_survival_score(int field[WIDTH][HEIGHT], int x, int y) {
+  int dx[] = {0, 0, -1, 1}, dy[] = {-1, 1, 0, 0};
+
+  // Check valid neighbors
+  vector<pair<int, int>> neighbors;
+  for (int d = 0; d < 4; d++) {
+    int nx = x + dx[d], ny = y + dy[d];
+    if (nx >= 0 && nx < WIDTH && ny >= 0 && ny < HEIGHT && field[nx][ny] == 0) {
+      neighbors.push_back({nx, ny});
+    }
+  }
+
+  if (neighbors.empty())
+    return {0, 0};
+
+  pair<int, int> best_res = {0, 0};
+  long long best_val = -1;
+
+  for (auto start : neighbors) {
+    int dist[WIDTH][HEIGHT];
+    for (int i = 0; i < WIDTH; i++)
+      for (int j = 0; j < HEIGHT; j++)
+        dist[i][j] = -1;
+
+    queue<pair<int, int>> q;
+    q.push(start);
+    dist[start.first][start.second] = 0;
+
+    int count = 0;
+    int max_d = 0;
+
+    while (!q.empty()) {
+      pair<int, int> curr = q.front();
+      q.pop();
+      count++;
+      int d = dist[curr.first][curr.second];
+      if (d > max_d)
+        max_d = d;
+
+      for (int dir = 0; dir < 4; dir++) {
+        int nx2 = curr.first + dx[dir], ny2 = curr.second + dy[dir];
+        if (nx2 >= 0 && nx2 < WIDTH && ny2 >= 0 && ny2 < HEIGHT &&
+            field[nx2][ny2] == 0 && dist[nx2][ny2] == -1) {
+          dist[nx2][ny2] = d + 1;
+          q.push({nx2, ny2});
+        }
+      }
+    }
+
+    long long val = (long long)count * 1000000 + max_d;
+    if (val > best_val) {
+      best_val = val;
+      best_res = {count, max_d};
+    }
+  }
+  return best_res;
+}
+
 int main() {
   int field[WIDTH][HEIGHT];
   for (int x = 0; x < WIDTH; x++)
@@ -255,12 +313,9 @@ int main() {
       long long eval = 0;
 
       if (!in_same) {
-        StructureStats ss = evaluate_structure(field, nx, ny);
-        eval = (long long)my_size * 1000000 -
-               (long long)ss.articulation_points * 2000 -
-               (long long)ss.max_lost_on_cut * 5000;
-        if (my_size < max_o_size)
-          eval -= 2000000000000LL;
+        pair<int, int> score = get_survival_score(field, nx, ny);
+        eval = (long long)score.first * 1000000 + score.second;
+
       } else {
         int ce = -1;
         int min_d = 10000;
@@ -334,8 +389,30 @@ int main() {
     }
     if (bmove != -1)
       cout << direction_to_string(bmove) << endl;
-    else
-      cout << "UP" << endl;
+    else {
+      int best_d = -1;
+      long long best_s = -1;
+      for (int d = 0; d < 4; d++) {
+        int nx = players[p].x1 + dx[d], ny = players[p].y1 + dy[d];
+        if (nx < 0 || nx >= WIDTH || ny < 0 || ny >= HEIGHT ||
+            field[nx][ny] != 0)
+          continue;
+
+        field[nx][ny] = p + 1;
+        pair<int, int> score = get_survival_score(field, nx, ny);
+        field[nx][ny] = 0;
+
+        long long s = (long long)score.first * 1000000 + score.second;
+        if (s > best_s) {
+          best_s = s;
+          best_d = d;
+        }
+      }
+      if (best_d != -1)
+        cout << direction_to_string(best_d) << endl;
+      else
+        cout << "UP" << endl;
+    }
   }
   return 0;
 }
